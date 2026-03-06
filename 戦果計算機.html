@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>艦これ戦果計算機</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-200 pb-12">
+    <div class="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+        <!-- Header -->
+        <header class="mb-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2.5 rounded-xl shadow-sm text-white">
+                    <i data-lucide="ship" class="w-7 h-7"></i>
+                </div>
+                <div class="text-left">
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                        艦これ戦果計算機
+                    </h1>
+                    <p class="text-sm text-slate-500 mt-1">
+                        目標戦果に必要な各海域の周回数を自動計算
+                    </p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Input Section -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 mb-8">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                    <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                        <i data-lucide="target" class="w-4 h-4 text-blue-500"></i>
+                        今日の目標戦果
+                    </label>
+                    <input type="number" id="targetSenka" value="20" min="0" step="0.1" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all">
+                </div>
+                <div>
+                    <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                        <i data-lucide="history" class="w-4 h-4 text-emerald-500"></i>
+                        現在の獲得済み戦果 (任意)
+                    </label>
+                    <input type="number" id="currentSenka" value="0" min="0" step="0.1" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all">
+                </div>
+            </div>
+            <div class="mt-6 pt-6 border-t border-slate-100 flex flex-col gap-3 bg-blue-50/50 rounded-xl p-4">
+                <div class="flex justify-between items-center text-sm text-slate-600">
+                    <span>手動入力分 (任意)</span>
+                    <span id="summaryManual" class="font-medium">0.00</span>
+                </div>
+                <div class="flex justify-between items-center text-sm text-slate-600">
+                    <div class="flex items-center gap-2">
+                        <span>周回記録分</span>
+                        <button id="resetCompletedBtn" class="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded text-slate-500 hover:text-blue-600 hover:border-blue-300 transition-colors flex items-center gap-1 shadow-sm" title="すべての周回数を0に戻す">
+                            <i data-lucide="rotate-ccw" class="w-3 h-3"></i> 全リセット
+                        </button>
+                    </div>
+                    <span id="summaryTracked" class="font-medium">0.00</span>
+                </div>
+                <div class="flex justify-between items-center font-bold text-blue-700 border-t border-blue-200/60 pt-3 mt-1">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="calculator" class="w-5 h-5"></i>
+                        <span>残り必要戦果</span>
+                    </div>
+                    <div id="remainingSenka" class="text-3xl">20.00</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 px-1">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        海域別 必要周回数
+                    </h2>
+                    <button id="toggleAddMapBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-colors text-sm border border-blue-200">
+                        <i data-lucide="plus" class="w-4 h-4"></i> 海域を追加
+                    </button>
+                </div>
+                <div class="flex items-center gap-3 self-start sm:self-auto">
+                    <button id="resetMapsBtn" class="text-xs text-slate-500 hover:text-slate-800 underline underline-offset-2">
+                        海域を初期状態に戻す
+                    </button>
+                </div>
+            </div>
+
+            <!-- Backup Controls -->
+            <div class="flex flex-wrap gap-3 mb-6 px-1">
+                <button id="exportBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors text-xs border border-slate-200">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i> バックアップを保存 (JSON)
+                </button>
+                <button id="importBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors text-xs border border-slate-200">
+                    <i data-lucide="upload" class="w-3.5 h-3.5"></i> バックアップを復元
+                </button>
+                <input type="file" id="importFile" accept=".json" class="hidden">
+            </div>
+
+            <!-- Add Map Form -->
+            <div id="addMapFormContainer" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 mb-8">
+                <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="map" class="w-4 h-4 text-slate-500"></i> 新しい海域を追加
+                </h3>
+                <form id="addMapForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">海域 (World)</label>
+                        <select id="newMapWorld" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50" required>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">海域番号 (例: 7-1)</label>
+                        <input type="text" id="newMapId" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="7-1" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">海域名 (例: ブルネイ)</label>
+                        <input type="text" id="newMapName" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="ブルネイ" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">1周の戦果</label>
+                        <input type="number" id="newMapSenka" step="0.01" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="1.47" required>
+                    </div>
+                    <div class="sm:col-span-2 lg:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">備考 (編成や特徴など)</label>
+                        <input type="text" id="newMapNote" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="軽巡1駆逐4">
+                    </div>
+                    <div class="sm:col-span-2 lg:col-span-3 flex justify-end mt-2">
+                        <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm">
+                            追加する
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="mapsContainer" class="space-y-8">
+                <!-- Maps will be rendered here -->
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const DEFAULT_MAPS = [
+            { id: '1-5', name: '(鎮守府近海)', senka: 0.9, note: '駆逐4', world: 1, completed: 0 },
+            { id: '3-2', name: '(キス島)', senka: 1.30, note: '高速+編成。高速周回', world: 3, completed: 0 },
+            { id: '3-4', name: '(北方海域全域)', senka: 2.66, note: '疑似空母4。高時給', world: 3, completed: 0 },
+            { id: '4-4', name: '(カスガダマ)', senka: 1.99, note: '育成並行', world: 4, completed: 0 },
+            { id: '4-5', name: '(カレー洋)', senka: 2.31, note: 'まるゆ掘り並行', world: 4, completed: 0 },
+            { id: '7-1', name: '(ブルネイ)', senka: 1.47, note: '定番。軽巡1駆逐4', world: 7, completed: 0 },
+            { id: '7-4', name: '(昭南)', senka: 1.97, note: '海防艦掘り並行', world: 7, completed: 0 },
+        ];
+
+        const WORLD_SORT_ORDER = [1, 2, 3, 7, 4, 5, 6];
+
+        let maps = JSON.parse(localStorage.getItem('kancolle-senka-maps')) || DEFAULT_MAPS;
+        maps = maps.map(m => ({ ...m, completed: m.completed || 0 }));
+        let targetSenka = 20;
+        let currentSenka = 0;
+        let isAddingMap = false;
+        let editingMapId = null;
+
+        // DOM Elements
+        const targetSenkaInput = document.getElementById('targetSenka');
+        const currentSenkaInput = document.getElementById('currentSenka');
+        const remainingSenkaEl = document.getElementById('remainingSenka');
+        const mapsContainer = document.getElementById('mapsContainer');
+        const toggleAddMapBtn = document.getElementById('toggleAddMapBtn');
+        const addMapFormContainer = document.getElementById('addMapFormContainer');
+        const addMapForm = document.getElementById('addMapForm');
+        const resetMapsBtn = document.getElementById('resetMapsBtn');
+        const resetCompletedBtn = document.getElementById('resetCompletedBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const importBtn = document.getElementById('importBtn');
+        const importFile = document.getElementById('importFile');
+
+        // Initialize
+        function init() {
+            targetSenkaInput.addEventListener('input', (e) => {
+                targetSenka = parseFloat(e.target.value) || 0;
+                render();
+            });
+            currentSenkaInput.addEventListener('input', (e) => {
+                currentSenka = parseFloat(e.target.value) || 0;
+                render();
+            });
+
+            toggleAddMapBtn.addEventListener('click', () => {
+                isAddingMap = !isAddingMap;
+                addMapFormContainer.classList.toggle('hidden', !isAddingMap);
+                toggleAddMapBtn.innerHTML = isAddingMap 
+                    ? 'キャンセル' 
+                    : '<i data-lucide="plus" class="w-4 h-4 inline-block align-text-bottom"></i> 海域を追加';
+                lucide.createIcons();
+            });
+
+            addMapForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const newMap = {
+                    world: parseInt(document.getElementById('newMapWorld').value, 10),
+                    id: document.getElementById('newMapId').value,
+                    name: document.getElementById('newMapName').value,
+                    senka: parseFloat(document.getElementById('newMapSenka').value),
+                    note: document.getElementById('newMapNote').value,
+                    completed: 0
+                };
+                maps.push(newMap);
+                saveMaps();
+                isAddingMap = false;
+                addMapFormContainer.classList.add('hidden');
+                toggleAddMapBtn.innerHTML = '<i data-lucide="plus" class="w-4 h-4 inline-block align-text-bottom"></i> 海域を追加';
+                addMapForm.reset();
+                render();
+            });
+
+            resetMapsBtn.addEventListener('click', () => {
+                maps = [...DEFAULT_MAPS];
+                saveMaps();
+                render();
+            });
+
+            resetCompletedBtn.addEventListener('click', () => {
+                maps = maps.map(m => ({ ...m, completed: 0 }));
+                saveMaps();
+                render();
+            });
+
+            exportBtn.addEventListener('click', () => {
+                const dataStr = JSON.stringify(maps, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `kancolle_senka_maps_backup_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+
+            importBtn.addEventListener('click', () => importFile.click());
+
+            importFile.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+                        if (Array.isArray(importedData)) {
+                            maps = importedData;
+                            saveMaps();
+                            render();
+                            alert('バックアップデータを復元しました。');
+                        } else {
+                            alert('ファイルの形式が正しくありません。');
+                        }
+                    } catch (error) {
+                        alert('ファイルの読み込みに失敗しました。');
+                    }
+                    importFile.value = '';
+                };
+                reader.readAsText(file);
+            });
+
+            render();
+        }
+
+        function saveMaps() {
+            localStorage.setItem('kancolle-senka-maps', JSON.stringify(maps));
+        }
+
+        // Global functions for inline event handlers
+        window.deleteMap = (id) => {
+            maps = maps.filter(m => m.id !== id);
+            saveMaps();
+            render();
+        };
+
+        window.editMap = (id) => {
+            editingMapId = id;
+            render();
+        };
+
+        window.cancelEdit = () => {
+            editingMapId = null;
+            render();
+        };
+
+        window.saveEdit = (id) => {
+            const world = parseInt(document.getElementById(`edit-world-${id}`).value, 10);
+            const newId = document.getElementById(`edit-id-${id}`).value;
+            const name = document.getElementById(`edit-name-${id}`).value;
+            const senka = parseFloat(document.getElementById(`edit-senka-${id}`).value);
+            const note = document.getElementById(`edit-note-${id}`).value;
+
+            if (!newId || !name || isNaN(senka)) return;
+
+            const existingMap = maps.find(m => m.id === id);
+            const completed = existingMap ? existingMap.completed : 0;
+
+            maps = maps.map(m => m.id === id ? { id: newId, name, senka, note, world, completed } : m);
+            editingMapId = null;
+            saveMaps();
+            render();
+        };
+
+        window.updateCompleted = (id, delta) => {
+            maps = maps.map(m => {
+                if (m.id === id) {
+                    return { ...m, completed: Math.max(0, (m.completed || 0) + delta) };
+                }
+                return m;
+            });
+            saveMaps();
+            render();
+        };
+
+        window.resetMapCompleted = (id) => {
+            maps = maps.map(m => m.id === id ? { ...m, completed: 0 } : m);
+            saveMaps();
+            render();
+        };
+
+        function getTrackedSenka() {
+            return maps.reduce((sum, map) => sum + (map.completed || 0) * map.senka, 0);
+        }
+
+        function render() {
+            const trackedSenka = getTrackedSenka();
+            const totalCurrent = currentSenka + trackedSenka;
+            const remaining = Math.max(0, targetSenka - totalCurrent);
+            
+            document.getElementById('summaryManual').textContent = currentSenka.toFixed(2);
+            document.getElementById('summaryTracked').textContent = trackedSenka.toFixed(2);
+            remainingSenkaEl.textContent = remaining.toFixed(2);
+
+            const mapsByWorld = maps.reduce((acc, map) => {
+                if (!acc[map.world]) acc[map.world] = [];
+                acc[map.world].push(map);
+                return acc;
+            }, {});
+
+            Object.keys(mapsByWorld).forEach(world => {
+                mapsByWorld[world].sort((a, b) => a.id.localeCompare(b.id));
+            });
+
+            const sortedWorlds = Object.keys(mapsByWorld).sort((a, b) => {
+                const indexA = WORLD_SORT_ORDER.indexOf(Number(a));
+                const indexB = WORLD_SORT_ORDER.indexOf(Number(b));
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                return indexA - indexB;
+            });
+
+            if (maps.length === 0) {
+                mapsContainer.innerHTML = `
+                    <div class="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300">
+                        <i data-lucide="map" class="w-8 h-8 mx-auto text-slate-300 mb-3"></i>
+                        <p class="text-slate-500">海域データがありません。<br/>「海域を追加」ボタンから追加してください。</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            let html = '';
+            sortedWorlds.forEach(world => {
+                const worldMaps = mapsByWorld[world];
+                html += `
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-2 flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs">
+                                ${world}
+                            </div>
+                            第${world}海域
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                `;
+
+                worldMaps.forEach(map => {
+                    const requiredSorties = remaining > 0 ? Math.ceil(remaining / map.senka) : 0;
+
+                    if (editingMapId === map.id) {
+                        html += `
+                            <div class="bg-white rounded-2xl p-4 shadow-md border border-blue-400 relative">
+                                <div class="space-y-3">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">海域 (World)</label>
+                                            <select id="edit-world-${map.id}" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500/50 outline-none">
+                                                ${[1,2,3,4,5,6,7].map(w => `<option value="${w}" ${w === map.world ? 'selected' : ''}>第${w}海域</option>`).join('')}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">番号 (例: 7-1)</label>
+                                            <input id="edit-id-${map.id}" value="${map.id}" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500/50 outline-none" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">海域名</label>
+                                        <input id="edit-name-${map.id}" value="${map.name}" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500/50 outline-none" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">1周の戦果</label>
+                                        <input type="number" step="0.01" id="edit-senka-${map.id}" value="${map.senka}" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500/50 outline-none" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">備考</label>
+                                        <input id="edit-note-${map.id}" value="${map.note}" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500/50 outline-none" />
+                                    </div>
+                                    <div class="flex justify-end gap-2 pt-2">
+                                        <button onclick="cancelEdit()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">キャンセル</button>
+                                        <button onclick="saveEdit('${map.id}')" class="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-200 transition-all group relative">
+                                <div class="absolute top-3 right-3 flex gap-3">
+                                    <button onclick="editMap('${map.id}')" class="text-slate-300 hover:text-blue-500 transition-colors" title="編集">
+                                        <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="deleteMap('${map.id}')" class="text-slate-300 hover:text-red-500 transition-colors" title="削除">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+
+                                <div class="flex justify-between items-start mb-3 pr-12">
+                                    <h4 class="text-base font-bold text-slate-800 group-hover:text-blue-600 transition-colors line-clamp-1">
+                                        ${map.id} ${map.name}
+                                    </h4>
+                                </div>
+                                
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex flex-col">
+                                        <span class="text-[10px] text-slate-500 font-bold mb-1">残り必要</span>
+                                        <div class="flex items-end gap-1.5">
+                                            <span class="text-4xl font-black text-slate-900 tracking-tight">${requiredSorties}</span>
+                                            <span class="text-slate-500 font-medium mb-1">周</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col items-end">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-[10px] text-slate-500 font-bold">本日周回済</span>
+                                            <div class="bg-slate-100 text-slate-600 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-200">
+                                                ${map.senka.toFixed(2)} / 周
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+                                            <button onclick="updateCompleted('${map.id}', -1)" class="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">-</button>
+                                            <span class="w-8 text-center font-bold text-slate-700">${map.completed || 0}</span>
+                                            <button onclick="updateCompleted('${map.id}', 1)" class="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">+</button>
+                                            <div class="w-px h-5 bg-slate-200 mx-0.5"></div>
+                                            <button onclick="resetMapCompleted('${map.id}')" class="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="この海域を0にリセット">
+                                                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                ${map.note ? `
+                                <div class="flex items-start gap-1.5 text-xs text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                    <i data-lucide="info" class="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400"></i>
+                                    <span class="line-clamp-2">${map.note}</span>
+                                </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }
+                });
+                html += `</div></div>`;
+            });
+
+            mapsContainer.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        // Run
+        init();
+    </script>
+</body>
+</html>
